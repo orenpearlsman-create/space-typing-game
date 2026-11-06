@@ -55,6 +55,7 @@
   #mMath { background: #ffd23f; }
   .opts { display: flex; gap: 22px; flex-wrap: wrap; justify-content: center; font-size: 17px; color: var(--muted); }
   .opts label { cursor: pointer; }
+  .switch { color: var(--accent); font-size: 17px; }
   .note { color: var(--muted); font-size: 16px; max-width: 600px; margin: 0; line-height: 1.5; }
 
   /* Math view */
@@ -145,11 +146,11 @@
 </div>
 
 <div class="menu" id="menu">
-  <h1>נבו בחלל</h1>
+  <h1 id="title">נבו בחלל</h1>
   <div class="modes">
     <button id="mLetters" type="button">אותיות<small>עברית · English · 123</small></button>
     <button id="mWords" type="button">English<small>מילים באנגלית</small></button>
-    <button id="mMath" type="button">חשבון<small>כיתות ו׳–ח׳ · גאומטריה</small></button>
+    <button id="mMath" type="button">חשבון<small id="mathSub">כיתות ו׳–ח׳ · גאומטריה</small></button>
   </div>
   <div class="opts">
     <label><input type="checkbox" id="optHint"> רמז מקלדת</label>
@@ -157,6 +158,7 @@
   </div>
   <p class="note" id="noteKeys">המקש קובע, לא השפה: ללחוץ על א או על T זה אותו דבר. Esc חוזר לתפריט.</p>
   <p class="note" id="last"></p>
+  <a class="switch" id="switch" href="index.html" hidden>החלפת שחקן</a>
 </div>
 
 <section class="math" id="math" hidden>
@@ -187,6 +189,13 @@
 <script src="core.js"></script>
 <script src="nevo-math.js"></script>
 <script>
+// A player from the home page arrives with ?name=…&age=…; without it the page is Enav's/Nevo's own.
+const PLAYER = (() => {
+  try {
+    const q = new URLSearchParams(location.search);
+    return { name: (q.get('name') || '').trim().slice(0, 20), age: parseInt(q.get('age'), 10) || 0 };
+  } catch (e) { return { name: '', age: 0 }; }
+})();
 const $ = id => document.getElementById(id);
 
 const WORDS = [
@@ -212,6 +221,23 @@ const nextWord = deck(WORDS);
 const LETTERS = [...Floaty.HEBREW, ...Floaty.ENGLISH, ...Floaty.DIGITS];
 
 Floaty.mount({ keyboardEnglish: true });
+
+// Age sets the starting speed and the math level; ages 8-10 practise letters and English only.
+const AGE = PLAYER.age >= 8 && PLAYER.age <= 14 ? PLAYER.age : 12;
+const LEVEL = {
+  lettersStart: { 8: 6, 9: 5.5, 10: 5, 11: 4.5 }[AGE] || 4,
+  lettersAtOnce: AGE < 10 ? 2 : 3,
+  wordsStart: AGE < 10 ? 8 : AGE < 12 ? 7 : 6,
+  maxGrade: AGE === 11 ? 'ז' : 'ח',
+  math: AGE >= 11,
+};
+$('mMath').hidden = !LEVEL.math;
+if (PLAYER.name) {
+  $('title').textContent = `${PLAYER.name} בחלל`;
+  document.title = `${PLAYER.name} בחלל`;
+  $('switch').hidden = false;
+}
+$('mathSub').textContent = { 'ז': 'כיתות ו׳–ז׳ · גאומטריה', 'ח': 'כיתות ו׳–ח׳ · גאומטריה' }[LEVEL.maxGrade];
 
 let mode = null, lastLetter = null;
 function letterNext(g) {
@@ -245,8 +271,8 @@ function startFloat(kind) {
   $('hA').hidden = false; $('hB').hidden = false; $('hFilter').hidden = true;
   document.activeElement.blur();
   Floaty.start({
-    startApproach: kind === 'letters' ? 4 : 6,
-    maxOnScreen: kind === 'letters' ? 3 : 1,
+    startApproach: kind === 'letters' ? LEVEL.lettersStart : LEVEL.wordsStart,
+    maxOnScreen: kind === 'letters' ? LEVEL.lettersAtOnce : 1,
     hint: $('optHint').checked,
     nextItem: kind === 'letters' ? letterNext : wordNext,
     onHud: floatHud,
@@ -272,7 +298,7 @@ function startMath() {
   nextExercise();
 }
 function nextExercise() {
-  M.ex = NevoMath.next(M.filter);
+  M.ex = NevoMath.next(M.filter, LEVEL.maxGrade);
   M.input = ''; M.tries = 0; M.over = false;
   $('mTopic').textContent = `${M.ex.area} · ${M.ex.topic} · כיתה ${M.ex.grade}׳`;
   $('mQ').innerHTML = M.ex.q;

@@ -46,6 +46,7 @@
   .go:focus-visible, .hud button:focus-visible { outline: 3px solid var(--fg); outline-offset: 3px; }
   .opts { display: flex; gap: 22px; flex-wrap: wrap; justify-content: center; font-size: 18px; color: var(--muted); }
   .opts label { cursor: pointer; }
+  .switch { color: var(--accent); font-size: 17px; }
   .note { color: var(--muted); font-size: 16px; max-width: 560px; margin: 0; line-height: 1.5; }
   button { touch-action: manipulation; }
   @media (max-width: 640px) {
@@ -66,7 +67,7 @@
 
 <div class="menu" id="menu">
   <div class="rocket" aria-hidden="true">🚀</div>
-  <h1>ענב בחלל</h1>
+  <h1 id="title">ענב בחלל</h1>
   <button class="go" id="btnGo" type="button">יאללה!</button>
   <div class="opts">
     <label><input type="checkbox" id="optHint" checked> רמז מקלדת</label>
@@ -74,10 +75,18 @@
   </div>
   <p class="note" id="note">אותיות, מילים ותרגילים מגיעים מהחלל. מקלידים אותם לפני שהם נעצרים. Esc חוזר לכאן.</p>
   <p class="note" id="last"></p>
+  <a class="switch" id="switch" href="index.html" hidden>החלפת שחקן</a>
 </div>
 
 <script src="core.js"></script>
 <script>
+// A player from the home page arrives with ?name=…&age=…; without it the page is Enav's/Nevo's own.
+const PLAYER = (() => {
+  try {
+    const q = new URLSearchParams(location.search);
+    return { name: (q.get('name') || '').trim().slice(0, 20), age: parseInt(q.get('age'), 10) || 0 };
+  } catch (e) { return { name: '', age: 0 }; }
+})();
 const R = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 
 // First-reading words: short, concrete, each with a picture so a non-reader knows what it says.
@@ -91,6 +100,15 @@ const WORDS = [
   ['גלידה', '🍦'], ['עוגה', '🎂'], ['אוטו', '🚗'], ['רכבת', '🚂'], ['נר', '🕯️'], ['כובע', '🎩'],
 ];
 const LETTERS = [...Floaty.HEBREW, ...Floaty.DIGITS];
+if (PLAYER.name) {
+  // The player's own name replaces the boys' names in the word list (when it can be typed in Hebrew).
+  for (const n of ['ענב', 'נבו']) WORDS.splice(WORDS.findIndex(w => w[0] === n), 1);
+  if ([...PLAYER.name].every(ch => Floaty.HEBREW.includes(ch))) WORDS.push([PLAYER.name, '🧒']);
+}
+// Younger players start slower; older ones start faster and with harder exercises.
+const AGE = PLAYER.age >= 4 && PLAYER.age <= 7 ? PLAYER.age : 5;
+const START_APPROACH = { 4: 8, 5: 7, 6: 6, 7: 5 }[AGE];
+const MATH_HEAD_START = { 4: 0, 5: 0, 6: 2, 7: 4 }[AGE];
 
 function deck(list) {
   let pile = [];
@@ -161,17 +179,22 @@ function showMenu(g) {
   $('btnGo').focus();
 }
 function go() {
-  plan = { round: 0, lettersLeft: 4, wordNext: true, mathCount: 0, lastLetter: null };
+  plan = { round: 0, lettersLeft: 4, wordNext: true, mathCount: MATH_HEAD_START * 4, lastLetter: null };
   Floaty.setSpeech($('optSpeak').checked);
   $('menu').hidden = true;
   $('hud').hidden = false;
   $('btnGo').blur();
   Floaty.start({
-    startApproach: 7, maxOnScreen: 1, hint: $('optHint').checked,
+    startApproach: START_APPROACH, maxOnScreen: 1, hint: $('optHint').checked,
     nextItem, onHud: hud, onExit: showMenu,
   });
 }
 $('btnGo').onclick = go;
+if (PLAYER.name) {
+  $('title').textContent = `${PLAYER.name} בחלל`;
+  document.title = `${PLAYER.name} בחלל`;
+  $('switch').hidden = false;
+}
 if (Floaty.TOUCH) $('note').textContent = 'אותיות, מילים ותרגילים מגיעים מהחלל. מקישים עליהם במקלדת שבתחתית המסך לפני שהם נעצרים.';
 $('btnMenu').onclick = () => showMenu(Floaty.stop());
 </script>

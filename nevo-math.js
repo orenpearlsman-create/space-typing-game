@@ -545,7 +545,7 @@ function fractions() {
 function ratio() {
   const a = R(1, 7), b = R(a + 1, 9), unitPart = R(2, 12), total = (a + b) * unitPart;
   return {
-    grade: 'ז', topic: 'יחס', q: `נבו וחבר חילקו ${total} קלפים ביחס ${m(`${a} : ${b}`)}. כמה קלפים קיבל זה שקיבל יותר?`,
+    grade: 'ז', topic: 'יחס', q: `שני חברים חילקו ${total} קלפים ביחס ${m(`${a} : ${b}`)}. כמה קלפים קיבל זה שקיבל יותר?`,
     answer: b * unitPart, unit: '',
     hints: ['ביחס ' + m(`${a} : ${b}`) + ' יש ' + (a + b) + ' חלקים שווים. מחלקים את הכמות במספר החלקים.',
             `חלק אחד: ${m(`${total} : ${a + b} = ${unitPart}`)}`],
@@ -582,12 +582,19 @@ function substitute() {
 const GEO = [triSum, adjacent, crossing, parallel, isosceles, exterior, polygon, pythagoras, segments, midsegment, area, circle, bisector, triangleX];
 const ALG = [linear, negatives, orderOps, percent, fractions, ratio, powers, substitute];
 
+const GRADES = ['ו', 'ז', 'ח'];
 let lastGen = null;
-function next(filter) {
+// maxGrade caps the level for younger players ('ו', 'ז' or 'ח').
+function next(filter, maxGrade = 'ח') {
   const pool = filter === 'geo' ? GEO : filter === 'alg' ? ALG : [...GEO, ...ALG];
-  let gen; do gen = pick(pool); while (pool.length > 1 && gen === lastGen);
+  const cap = GRADES.indexOf(maxGrade);
+  let gen, ex;
+  for (let tries = 0; tries < 200; tries++) {
+    do gen = pick(pool); while (pool.length > 1 && gen === lastGen);
+    ex = gen();
+    if (GRADES.indexOf(ex.grade) <= cap) break;
+  }
   lastGen = gen;
-  const ex = gen();
   ex.area = GEO.includes(gen) ? 'גאומטריה' : 'אלגברה וחשבון';
   return ex;
 }

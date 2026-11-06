@@ -2,19 +2,178 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>משחקי הקלדה</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>בחלל</title>
 <style>
-  :root { color-scheme: dark; --bg: #070d22; --fg: #fff; }
-  body { margin: 0; min-height: 100vh; display: flex; gap: 28px; align-items: center; justify-content: center; flex-wrap: wrap;
-         background: var(--bg); color: var(--fg); font-family: "Varela Round", Arial, sans-serif; padding: 16px; box-sizing: border-box; }
-  a { display: block; width: 260px; padding: 32px 16px; border-radius: 20px; text-align: center; text-decoration: none;
-      font-size: 42px; color: #111; box-shadow: 0 8px 0 rgba(0,0,0,.35); }
-  .enav { background: #ffb84f; } .nevo { background: #4fd1ff; }
+  /* Launch pad: a dark sky, one card in the middle, age picked from big round "planets". */
+  :root {
+    color-scheme: dark;
+    --sky-in: #1b2260;
+    --sky-out: #070b20;
+    --card: rgba(13, 20, 52, .82);
+    --edge: #33407f;
+    --fg: #ffffff;
+    --muted: #b8c0ea;
+    --young: #ffb84f;
+    --mid: #c792ff;
+    --pro: #4fd1ff;
+    --go: #7cff6b;
+    --warn: #ff8a8a;
+    --font: "Varela Round", "Arial Rounded MT Bold", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--sky-out); }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background:
+      radial-gradient(1.5px 1.5px at 12% 18%, #fff 50%, transparent 51%),
+      radial-gradient(1px 1px at 78% 12%, #fff 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 88% 64%, #fff 50%, transparent 51%),
+      radial-gradient(1px 1px at 22% 78%, #fff 50%, transparent 51%),
+      radial-gradient(1px 1px at 52% 34%, #fff 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 64% 90%, #fff 50%, transparent 51%),
+      radial-gradient(1px 1px at 6% 52%, #fff 50%, transparent 51%),
+      radial-gradient(ellipse at center, var(--sky-in) 0%, var(--sky-out) 75%) fixed;
+    color: var(--fg); font-family: var(--font);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+    min-height: 100vh;
+    padding-block: 24px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  h1 { margin: 0; font-size: clamp(40px, 9vw, 72px); text-align: center; text-wrap: balance; }
+  h1 .rocket { display: inline-block; animation: bob 2.4s ease-in-out infinite; }
+  @keyframes bob { 50% { transform: translateY(-10px) rotate(-8deg); } }
+  .card {
+    width: min(620px, 100%); background: var(--card); border: 2px solid var(--edge); border-radius: 24px;
+    padding: 24px; display: flex; flex-direction: column; gap: 20px;
+  }
+  label, .label { font-size: 22px; display: block; margin-bottom: 10px; }
+  input[type=text] {
+    width: 100%; font: inherit; font-size: 28px; padding: 10px 16px; border-radius: 14px;
+    border: 2px solid var(--edge); background: #070d26; color: var(--fg);
+  }
+  input[type=text]:focus { outline: none; border-color: var(--pro); }
+  .ages { display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); gap: 10px; direction: ltr; }
+  .ages button {
+    font: inherit; font-size: 26px; aspect-ratio: 1; border-radius: 50%; border: 3px solid transparent; cursor: pointer;
+    color: #111; touch-action: manipulation; font-variant-numeric: tabular-nums;
+  }
+  .ages button[data-track=young] { background: var(--young); }
+  .ages button[data-track=mid] { background: var(--mid); }
+  .ages button[data-track=pro] { background: var(--pro); }
+  .ages button[aria-pressed=true] { border-color: var(--fg); box-shadow: 0 0 0 4px rgba(255,255,255,.25); transform: scale(1.08); }
+  .track { border-radius: 16px; padding: 14px 16px; background: rgba(255,255,255,.06); border-inline-start: 6px solid var(--muted); line-height: 1.5; }
+  .track b { font-size: 20px; }
+  .track[data-track=young] { border-color: var(--young); }
+  .track[data-track=mid] { border-color: var(--mid); }
+  .track[data-track=pro] { border-color: var(--pro); }
+  .track p { margin: 4px 0 0; color: var(--muted); }
+  .go {
+    font: inherit; font-size: 30px; padding: 14px; border: none; border-radius: 999px; cursor: pointer;
+    background: var(--go); color: #062006; box-shadow: 0 6px 0 rgba(0,0,0,.35); touch-action: manipulation;
+  }
+  .go:active { transform: translateY(3px); }
+  .err { color: var(--warn); margin: 0; min-height: 1.4em; font-size: 18px; }
+  button:focus-visible { outline: 3px solid var(--fg); outline-offset: 3px; }
+  .players { width: min(620px, 100%); display: flex; flex-direction: column; gap: 10px; }
+  .players h2 { margin: 0; font-size: 18px; font-weight: normal; color: var(--muted); }
+  .list { display: flex; flex-wrap: wrap; gap: 10px; }
+  .player { display: flex; align-items: center; border-radius: 999px; background: rgba(255,255,255,.1); }
+  .player button { font: inherit; border: none; background: none; color: var(--fg); cursor: pointer; touch-action: manipulation; }
+  .player .pick { font-size: 20px; padding: 8px 6px 8px 16px; padding-inline-start: 16px; padding-inline-end: 6px; }
+  .player .pick small { color: var(--muted); }
+  .player .del { font-size: 18px; padding: 8px 14px 8px 10px; padding-inline-start: 8px; padding-inline-end: 14px; color: var(--muted); }
+  @media (prefers-reduced-motion: reduce) { h1 .rocket { animation: none; } }
 </style>
 </head>
 <body>
-  <a class="enav" href="enav.html">🚀 ענב בחלל</a>
-  <a class="nevo" href="nevo.html">🪐 נבו בחלל</a>
+  <h1><span class="rocket" aria-hidden="true">🚀</span> יוצאים לחלל</h1>
+
+  <section class="players" id="players" hidden>
+    <h2>כבר שיחקו כאן:</h2>
+    <div class="list" id="list"></div>
+  </section>
+
+  <form class="card" id="form" novalidate>
+    <div>
+      <label for="name">מה השם שלך?</label>
+      <input type="text" id="name" maxlength="20" autocomplete="off" placeholder="השם שלי">
+    </div>
+    <div>
+      <span class="label" id="ageLabel">בן או בת כמה?</span>
+      <div class="ages" id="ages" role="group" aria-labelledby="ageLabel"></div>
+    </div>
+    <div class="track" id="track" hidden></div>
+    <p class="err" id="err" role="alert"></p>
+    <button class="go" type="submit">יוצאים לדרך!</button>
+  </form>
+
+<script>
+const $ = id => document.getElementById(id);
+
+// Ages 4-7: letters, first words and simple exercises. 8-10: letters and English words.
+// 11-14: letters, English words and grade 6-8 math.
+const TRACKS = {
+  young: { name: 'מסלול חוקרים צעירים', page: 'enav.html', text: 'אותיות בעברית, מילים ראשונות עם תמונות, ותרגילי חיבור, חיסור, כפל וחילוק.' },
+  mid:   { name: 'מסלול חוקרים מתקדמים', page: 'nevo.html', text: 'אותיות בעברית ובאנגלית, ומילים באנגלית.' },
+  pro:   { name: 'מסלול חוקרים מומחים', page: 'nevo.html', text: 'אותיות בעברית ובאנגלית, מילים באנגלית, וחשבון וגאומטריה לכיתות ו׳–ח׳.' },
+};
+const trackFor = age => (age <= 7 ? 'young' : age <= 10 ? 'mid' : 'pro');
+
+let age = 0;
+for (let a = 4; a <= 14; a++) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.textContent = a; b.dataset.track = trackFor(a);
+  b.setAttribute('aria-pressed', 'false');
+  b.onclick = () => setAge(a);
+  $('ages').appendChild(b);
+}
+function setAge(a) {
+  age = a;
+  for (const b of $('ages').children) b.setAttribute('aria-pressed', String(+b.textContent === a));
+  const key = trackFor(a), t = TRACKS[key];
+  $('track').hidden = false;
+  $('track').dataset.track = key;
+  $('track').innerHTML = `<b>${t.name}</b><p>${t.text}</p>`;
+  $('err').textContent = '';
+}
+
+// Players remembered on this device only.
+const STORE = 'space-players';
+function loadPlayers() { try { return JSON.parse(localStorage.getItem(STORE)) || []; } catch (e) { return []; } }
+function savePlayers(list) { try { localStorage.setItem(STORE, JSON.stringify(list.slice(0, 8))); } catch (e) { /* optional */ } }
+function renderPlayers() {
+  const list = loadPlayers();
+  $('players').hidden = !list.length;
+  $('list').innerHTML = '';
+  for (const p of list) {
+    const row = document.createElement('div'); row.className = 'player';
+    const pick = document.createElement('button'); pick.type = 'button'; pick.className = 'pick';
+    pick.innerHTML = `${escapeHtml(p.name)} <small>· ${p.age}</small>`;
+    pick.onclick = () => launch(p.name, p.age);
+    const del = document.createElement('button'); del.type = 'button'; del.className = 'del';
+    del.textContent = '✕'; del.setAttribute('aria-label', `הסרת ${p.name}`);
+    del.onclick = () => { savePlayers(loadPlayers().filter(q => q.name !== p.name)); renderPlayers(); };
+    row.append(pick, del);
+    $('list').appendChild(row);
+  }
+}
+function escapeHtml(s) { return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+function launch(name, a) {
+  savePlayers([{ name, age: a }, ...loadPlayers().filter(q => q.name !== name)]);
+  const q = new URLSearchParams({ name, age: String(a) });
+  location.href = `${TRACKS[trackFor(a)].page}?${q}`;
+}
+
+$('form').onsubmit = (e) => {
+  e.preventDefault();
+  const name = $('name').value.trim();
+  if (!name) { $('err').textContent = 'כתבו את השם שלכם כדי להתחיל.'; $('name').focus(); return; }
+  if (!age) { $('err').textContent = 'בחרו גיל (מ־4 עד 14).'; return; }
+  launch(name, age);
+};
+renderPlayers();
+</script>
 </body>
 </html>
