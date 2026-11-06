@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ענב בחלל</title>
+<style>
+  /* Enav's space: warm violet sky, one big target at a time. */
+  :root {
+    color-scheme: dark;
+    --sky-in: #3a1257;
+    --sky-out: #12061f;
+    --fg: #ffffff;
+    --muted: #e3c9f5;
+    --accent: #ffb84f;
+    --go: #ff8a3d;
+    --font: "Varela Round", "Arial Rounded MT Bold", Arial, sans-serif;
+  }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body {
+    background: radial-gradient(ellipse at center, var(--sky-in) 0%, var(--sky-out) 72%);
+    color: var(--fg); font-family: var(--font); user-select: none;
+  }
+  .hud {
+    position: fixed; top: 0; inset-inline: 0; z-index: 5;
+    display: flex; gap: 22px; justify-content: center; align-items: center; flex-wrap: wrap;
+    padding: calc(8px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px));
+    font-size: 22px; background: rgba(0,0,0,.25);
+  }
+  .hud b { color: var(--accent); font-variant-numeric: tabular-nums; }
+  .hud button { font: inherit; font-size: 18px; cursor: pointer; border: none; border-radius: 14px; padding: 4px 14px;
+                background: rgba(255,255,255,.15); color: var(--fg); }
+  .menu {
+    position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; gap: 26px;
+    align-items: center; justify-content: center; text-align: center;
+    padding-block: 16px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .menu h1 { margin: 0; font-size: clamp(44px, 9vw, 96px); color: var(--accent); text-shadow: 0 0 30px rgba(255,184,79,.5); }
+  .menu .rocket { font-size: clamp(60px, 12vw, 120px); animation: bob 2.4s ease-in-out infinite; }
+  @keyframes bob { 50% { transform: translateY(-14px) rotate(-6deg); } }
+  .go {
+    font: inherit; font-size: clamp(36px, 6vw, 56px); padding: 18px 64px; border: none; border-radius: 999px;
+    background: var(--go); color: #2a0f00; cursor: pointer; box-shadow: 0 8px 0 rgba(0,0,0,.35);
+  }
+  .go:active { transform: translateY(4px); }
+  .go:focus-visible, .hud button:focus-visible { outline: 3px solid var(--fg); outline-offset: 3px; }
+  .opts { display: flex; gap: 22px; flex-wrap: wrap; justify-content: center; font-size: 18px; color: var(--muted); }
+  .opts label { cursor: pointer; }
+  .note { color: var(--muted); font-size: 16px; max-width: 560px; margin: 0; line-height: 1.5; }
+  button { touch-action: manipulation; }
+  @media (max-width: 640px) {
+    .hud { font-size: 16px; gap: 12px; }
+    .hud button { font-size: 14px; padding: 3px 10px; }
+    .go { padding: 14px 44px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .menu .rocket { animation: none; } }
+</style>
+</head>
+<body>
+<div class="hud" id="hud" hidden>
+  <span>נקודות: <b id="hScore">0</b></span>
+  <span>סיבוב: <b id="hRound">1</b></span>
+  <span>זמן התקרבות: <b id="hSpeed"></b> שנ׳</span>
+  <button id="btnMenu" type="button" title="Esc">תפריט</button>
+</div>
+
+<div class="menu" id="menu">
+  <div class="rocket" aria-hidden="true">🚀</div>
+  <h1>ענב בחלל</h1>
+  <button class="go" id="btnGo" type="button">יאללה!</button>
+  <div class="opts">
+    <label><input type="checkbox" id="optHint" checked> רמז מקלדת</label>
+    <label><input type="checkbox" id="optSpeak" checked> הקראה בקול</label>
+  </div>
+  <p class="note" id="note">אותיות, מילים ותרגילים מגיעים מהחלל. מקלידים אותם לפני שהם נעצרים. Esc חוזר לכאן.</p>
+  <p class="note" id="last"></p>
+</div>
+
+<script src="core.js"></script>
+<script>
+const R = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+
+// First-reading words: short, concrete, each with a picture so a non-reader knows what it says.
+const WORDS = [
+  ['אבא', '👨'], ['אמא', '👩'], ['ענב', '👦'], ['נבו', '🧒'], ['בית', '🏠'], ['דג', '🐟'],
+  ['דב', '🐻'], ['סוס', '🐴'], ['כלב', '🐶'], ['חתול', '🐱'], ['פרה', '🐮'], ['פיל', '🐘'],
+  ['אריה', '🦁'], ['ציפור', '🐦'], ['עץ', '🌳'], ['פרח', '🌸'], ['שמש', '☀️'], ['ירח', '🌙'],
+  ['כוכב', '⭐'], ['ענן', '☁️'], ['גשם', '🌧️'], ['ים', '🌊'], ['יד', '✋'], ['אף', '👃'],
+  ['פה', '👄'], ['עין', '👁️'], ['שן', '🦷'], ['לב', '❤️'], ['כדור', '⚽'], ['ספר', '📖'],
+  ['בלון', '🎈'], ['תפוח', '🍎'], ['בננה', '🍌'], ['לחם', '🍞'], ['מים', '💧'], ['חלב', '🥛'],
+  ['גלידה', '🍦'], ['עוגה', '🎂'], ['אוטו', '🚗'], ['רכבת', '🚂'], ['נר', '🕯️'], ['כובע', '🎩'],
+];
+const LETTERS = [...Floaty.HEBREW, ...Floaty.DIGITS];
+
+function deck(list) {
+  let pile = [];
+  return () => {
+    if (!pile.length) pile = [...list].sort(() => Math.random() - 0.5);
+    return pile.pop();
+  };
+}
+const nextWord = deck(WORDS);
+
+// Exercises rotate + − × ÷ and grow slowly up to 100 (sums) and 10×10 (tables).
+const OPS = [
+  { sym: '+', word: 'ועוד' }, { sym: '−', word: 'פחות' },
+  { sym: '×', word: 'כפול' }, { sym: '÷', word: 'חלקי' },
+];
+function makeMath(n) {
+  const op = OPS[n % 4], lvl = Math.floor(n / 4);
+  const maxSum = Math.min(100, 10 + lvl * 15);
+  const maxF = Math.min(10, 3 + lvl);
+  let a, b, ans, pic = null;
+  if (op.sym === '+') { a = R(1, maxSum - 1); b = R(1, maxSum - a); ans = a + b; }
+  else if (op.sym === '−') { a = R(2, maxSum); b = R(1, a - 1); ans = a - b; }
+  else if (op.sym === '×') { a = R(2, maxF); b = R(1, maxF); ans = a * b; }
+  else { b = R(2, maxF); ans = R(1, maxF); a = b * ans; }
+  // Small sums get apples to count.
+  if ((op.sym === '+' && a + b <= 10) || (op.sym === '−' && a <= 10))
+    pic = '🍎'.repeat(a) + ` ${op.sym} ` + '🍎'.repeat(b);
+  const item = Floaty.mathItem(`${a} ${op.sym} ${b} =`, ans, pic, `${a} ${op.word} ${b} שווה ${ans}`);
+  item.slow = 2.2; item.hintDelay = 4;
+  return item;
+}
+
+// Rounds: 4 letters then a special item for the first 3 rounds, 3 letters after that.
+// Specials alternate: word, exercise, word, exercise...
+let plan;
+function nextItem() {
+  if (plan.lettersLeft > 0) {
+    plan.lettersLeft--;
+    let ch;
+    do { ch = LETTERS[Math.floor(Math.random() * LETTERS.length)]; } while (ch === plan.lastLetter);
+    plan.lastLetter = ch;
+    return Floaty.letterItem(ch);
+  }
+  let item;
+  if (plan.wordNext) {
+    const [w, pic] = nextWord();
+    item = Floaty.wordItem(w, pic, 'he');
+    item.slow = 1.5; item.hintDelay = 1;
+  } else item = makeMath(plan.mathCount++);
+  plan.wordNext = !plan.wordNext;
+  plan.round++;
+  plan.lettersLeft = plan.round < 3 ? 4 : 3;
+  return item;
+}
+
+const $ = id => document.getElementById(id);
+Floaty.mount({ keyboardEnglish: false });
+
+function hud(g) {
+  $('hScore').textContent = g.score;
+  $('hRound').textContent = plan.round + 1;
+  $('hSpeed').textContent = g.approach.toFixed(2);
+}
+function showMenu(g) {
+  $('hud').hidden = true;
+  $('menu').hidden = false;
+  if (g) $('last').textContent = `בפעם הקודמת: ${g.score} נקודות, ${plan.round} סיבובים 🌟`;
+  $('btnGo').focus();
+}
+function go() {
+  plan = { round: 0, lettersLeft: 4, wordNext: true, mathCount: 0, lastLetter: null };
+  Floaty.setSpeech($('optSpeak').checked);
+  $('menu').hidden = true;
+  $('hud').hidden = false;
+  $('btnGo').blur();
+  Floaty.start({
+    startApproach: 7, maxOnScreen: 1, hint: $('optHint').checked,
+    nextItem, onHud: hud, onExit: showMenu,
+  });
+}
+$('btnGo').onclick = go;
+if (Floaty.TOUCH) $('note').textContent = 'אותיות, מילים ותרגילים מגיעים מהחלל. מקישים עליהם במקלדת שבתחתית המסך לפני שהם נעצרים.';
+$('btnMenu').onclick = () => showMenu(Floaty.stop());
+</script>
+</body>
+</html>

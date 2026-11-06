@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>נבו בחלל</title>
+<style>
+  /* Nevo's space: cold blue deep field; math exercises arrive on a chalkboard-like card. */
+  :root {
+    color-scheme: dark;
+    --sky-in: #0f2a5c;
+    --sky-out: #050b1d;
+    --fg: #ffffff;
+    --muted: #b9c8ea;
+    --accent: #4fd1ff;
+    --gold: #ffd23f;
+    --card: #10213f;
+    --card-edge: #2b4a7f;
+    --ok: #7cff6b;
+    --bad: #ff6b6b;
+    --font: "Varela Round", "Arial Rounded MT Bold", Arial, sans-serif;
+  }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body {
+    background: radial-gradient(ellipse at center, var(--sky-in) 0%, var(--sky-out) 72%);
+    color: var(--fg); font-family: var(--font); user-select: none;
+  }
+  button { font: inherit; cursor: pointer; border: none; }
+  button { touch-action: manipulation; }
+  button:focus-visible { outline: 3px solid var(--fg); outline-offset: 3px; }
+  .hud {
+    position: fixed; top: 0; inset-inline: 0; z-index: 8;
+    display: flex; gap: 22px; justify-content: center; align-items: center; flex-wrap: wrap;
+    padding: calc(8px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px));
+    font-size: 20px; background: rgba(0,0,0,.3);
+  }
+  .hud b { color: var(--gold); font-variant-numeric: tabular-nums; }
+  .hud button { font-size: 17px; border-radius: 14px; padding: 4px 14px; background: rgba(255,255,255,.15); color: var(--fg); }
+  .hud button.on { background: var(--accent); color: #041226; }
+  .menu {
+    position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; gap: 24px;
+    align-items: center; justify-content: center; text-align: center;
+    padding-block: 16px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .menu h1 { margin: 0; font-size: clamp(40px, 8vw, 84px); color: var(--accent); letter-spacing: .02em; text-shadow: 0 0 30px rgba(79,209,255,.45); }
+  .modes { display: flex; gap: 22px; flex-wrap: wrap; justify-content: center; }
+  .modes button {
+    width: 230px; padding: 24px 14px; font-size: 34px; border-radius: 18px; color: #061226;
+    box-shadow: 0 8px 0 rgba(0,0,0,.35);
+  }
+  .modes button small { display: block; font-size: 16px; margin-top: 8px; color: #213048; }
+  .modes button:active { transform: translateY(4px); }
+  #mLetters { background: #4fd1ff; }
+  #mWords { background: #c792ff; }
+  #mMath { background: #ffd23f; }
+  .opts { display: flex; gap: 22px; flex-wrap: wrap; justify-content: center; font-size: 17px; color: var(--muted); }
+  .opts label { cursor: pointer; }
+  .note { color: var(--muted); font-size: 16px; max-width: 600px; margin: 0; line-height: 1.5; }
+
+  /* Math view */
+  .math {
+    position: fixed; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center;
+    padding-top: 64px; padding-bottom: 16px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+    overflow-y: auto;
+  }
+  .card {
+    width: min(680px, 100%); background: var(--card); border: 2px solid var(--card-edge); border-radius: 22px;
+    padding: 22px 26px; display: flex; flex-direction: column; gap: 14px;
+    box-shadow: 0 0 60px rgba(79,209,255,.18);
+  }
+  .card.fly { animation: fly .6s cubic-bezier(.2,.8,.3,1); }
+  @keyframes fly { from { transform: scale(.08); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .card.shake { animation: shake .3s; }
+  @keyframes shake { 25% { transform: translateX(-10px); } 50% { transform: translateX(8px); } 75% { transform: translateX(-5px); } }
+  .chip { align-self: flex-start; font-size: 14px; color: var(--accent); border: 1px solid var(--accent); border-radius: 999px; padding: 2px 12px; }
+  .q { font-size: 23px; line-height: 1.55; text-wrap: pretty; }
+  .q small { color: var(--muted); font-size: 15px; }
+  .m { unicode-bidi: isolate; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .fr { display: inline-flex; flex-direction: column; vertical-align: middle; text-align: center; font-size: .85em; line-height: 1.1; margin: 0 .1em; }
+  .fr > span:first-child { border-bottom: 2px solid currentColor; padding: 0 .15em; }
+  .fig { display: flex; justify-content: center; }
+  .fig:empty { display: none; }
+  .geo { width: 100%; max-width: 420px; height: auto; }
+  .geo .ln { stroke: var(--fg); stroke-width: 2.2; fill: none; stroke-linecap: round; }
+  .geo .ln.dash { stroke-dasharray: 6 5; stroke: var(--muted); }
+  .geo .arc { stroke: var(--gold); stroke-width: 2; fill: none; }
+  .geo .unk-arc { stroke: var(--accent); }
+  .geo .dot { fill: var(--fg); }
+  .geo text { font-family: var(--font); font-size: 16px; }
+  .geo .pname { fill: var(--muted); font-size: 15px; }
+  .geo .giv { fill: var(--gold); font-weight: 700; }
+  .geo .unk { fill: var(--accent); font-weight: 700; font-size: 19px; }
+  .geo .lbl { fill: var(--fg); }
+  .answer { display: flex; align-items: center; gap: 12px; font-size: 22px; }
+  .answer .box {
+    min-width: 160px; padding: 8px 14px; border-radius: 12px; background: #06142a; border: 2px solid var(--card-edge);
+    font-size: 30px; font-variant-numeric: tabular-nums; text-align: left; min-height: 1.4em;
+  }
+  .answer .box::after { content: '▏'; color: var(--accent); animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .answer .unit { color: var(--muted); }
+  .hintbox { border-radius: 12px; padding: 10px 14px; font-size: 18px; line-height: 1.5; background: rgba(255,210,63,.1); border-inline-start: 4px solid var(--gold); }
+  .hintbox.sol { background: rgba(124,255,107,.1); border-color: var(--ok); }
+  .hintbox.bad { background: rgba(255,107,107,.1); border-color: var(--bad); }
+  .hintbox b { color: var(--gold); }
+  .actions { display: flex; gap: 12px; flex-wrap: wrap; }
+  .actions button { font-size: 18px; border-radius: 12px; padding: 8px 18px; background: var(--accent); color: #041226; }
+  .actions button.ghost { background: rgba(255,255,255,.12); color: var(--fg); }
+  .keys { color: var(--muted); font-size: 14px; }
+  .pad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: min(100%, 340px); align-self: center; }
+  .pad button {
+    font-size: 26px; padding: 10px 0; border-radius: 12px; background: rgba(255,255,255,.12); color: var(--fg);
+    touch-action: manipulation; -webkit-tap-highlight-color: transparent; font-variant-numeric: tabular-nums;
+  }
+  .pad button:active { background: rgba(255,255,255,.35); }
+  .pad .fn { background: rgba(79,209,255,.18); }
+  .pad .ok { grid-column: span 2; background: var(--ok); color: #062006; font-weight: 700; }
+
+  /* Phones: tighter header and cards. */
+  @media (max-width: 640px) {
+    .hud { font-size: 15px; gap: 10px; }
+    .hud button { font-size: 14px; padding: 3px 10px; }
+    .modes button { width: min(100%, 300px); padding: 16px 12px; font-size: 28px; }
+    .math { padding-top: 92px; align-items: flex-start; }
+    .card { padding: 16px; gap: 10px; }
+    .q { font-size: 18px; }
+    .answer { font-size: 18px; }
+    .answer .box { font-size: 24px; min-width: 120px; }
+    .hintbox { font-size: 16px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .card.fly, .card.shake, .answer .box::after { animation: none; } }
+</style>
+</head>
+<body>
+<div class="hud" id="hud" hidden>
+  <span>נקודות: <b id="hScore">0</b></span>
+  <span id="hA">בזמן: <b id="hInTime">0</b></span>
+  <span id="hB">זמן התקרבות: <b id="hSpeed"></b> שנ׳</span>
+  <span id="hFilter" hidden>
+    <button type="button" data-f="all" class="on">הכל</button>
+    <button type="button" data-f="geo">גאומטריה</button>
+    <button type="button" data-f="alg">אלגברה וחשבון</button>
+  </span>
+  <button id="btnMenu" type="button" title="Esc">תפריט</button>
+</div>
+
+<div class="menu" id="menu">
+  <h1>נבו בחלל</h1>
+  <div class="modes">
+    <button id="mLetters" type="button">אותיות<small>עברית · English · 123</small></button>
+    <button id="mWords" type="button">English<small>מילים באנגלית</small></button>
+    <button id="mMath" type="button">חשבון<small>כיתות ו׳–ח׳ · גאומטריה</small></button>
+  </div>
+  <div class="opts">
+    <label><input type="checkbox" id="optHint"> רמז מקלדת</label>
+    <label><input type="checkbox" id="optSpeak" checked> הקראת המילים באנגלית</label>
+  </div>
+  <p class="note" id="noteKeys">המקש קובע, לא השפה: ללחוץ על א או על T זה אותו דבר. Esc חוזר לתפריט.</p>
+  <p class="note" id="last"></p>
+</div>
+
+<section class="math" id="math" hidden>
+  <div class="card" id="card">
+    <span class="chip" id="mTopic"></span>
+    <div class="q" id="mQ"></div>
+    <div class="fig" id="mFig"></div>
+    <div class="answer">
+      <span>תשובה:</span>
+      <span class="box" id="mIn" dir="ltr"></span>
+      <span class="unit" id="mUnit"></span>
+    </div>
+    <div id="mFeedback"></div>
+    <div class="actions">
+      <button type="button" id="mCheck">בדיקה</button>
+      <button type="button" class="ghost" id="mSkip">הראה פתרון</button>
+    </div>
+    <div class="pad" id="mPad" dir="ltr" hidden>
+      <button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button><button type="button" data-k="back" class="fn" aria-label="מחיקה">⌫</button>
+      <button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button><button type="button" data-k="-" class="fn">−</button>
+      <button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button><button type="button" data-k="/" class="fn">/</button>
+      <button type="button" data-k=".">.</button><button type="button" data-k="0">0</button><button type="button" data-k="enter" class="ok">✓</button>
+    </div>
+    <div class="keys" id="mKeysHelp">Enter לבדיקה · Backspace למחיקה · מקש מינוס למספר שלילי · / לשבר</div>
+  </div>
+</section>
+
+<script src="core.js"></script>
+<script src="nevo-math.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+
+const WORDS = [
+  ['apple', '🍎'], ['banana', '🍌'], ['house', '🏠'], ['school', '🏫'], ['rocket', '🚀'], ['guitar', '🎸'],
+  ['elephant', '🐘'], ['dolphin', '🐬'], ['keyboard', '⌨️'], ['computer', '💻'], ['mountain', '⛰️'], ['rainbow', '🌈'],
+  ['pizza', '🍕'], ['bicycle', '🚲'], ['airplane', '✈️'], ['umbrella', '☂️'], ['camera', '📷'], ['football', '⚽'],
+  ['basketball', '🏀'], ['butterfly', '🦋'], ['penguin', '🐧'], ['giraffe', '🦒'], ['dragon', '🐉'], ['castle', '🏰'],
+  ['island', '🏝️'], ['volcano', '🌋'], ['planet', '🪐'], ['robot', '🤖'], ['wizard', '🧙'], ['diamond', '💎'],
+  ['lightning', '⚡'], ['snowman', '⛄'], ['octopus', '🐙'], ['turtle', '🐢'], ['tiger', '🐯'], ['monkey', '🐵'],
+  ['cookie', '🍪'], ['sandwich', '🥪'], ['popcorn', '🍿'], ['trophy', '🏆'], ['medal', '🥇'], ['ticket', '🎫'],
+  ['clock', '⏰'], ['candle', '🕯️'], ['magnet', '🧲'], ['comet', '☄️'], ['satellite', '🛰️'], ['telescope', '🔭'],
+  ['headphones', '🎧'], ['microphone', '🎤'], ['dinosaur', '🦖'], ['shark', '🦈'], ['whale', '🐳'], ['eagle', '🦅'],
+  ['tornado', '🌪️'], ['ocean', '🌊'], ['forest', '🌲'], ['desert', '🏜️'], ['bridge', '🌉'], ['train', '🚆'],
+];
+function deck(list) {
+  let pile = [];
+  return () => {
+    if (!pile.length) pile = [...list].sort(() => Math.random() - 0.5);
+    return pile.pop();
+  };
+}
+const nextWord = deck(WORDS);
+const LETTERS = [...Floaty.HEBREW, ...Floaty.ENGLISH, ...Floaty.DIGITS];
+
+Floaty.mount({ keyboardEnglish: true });
+
+let mode = null, lastLetter = null;
+function letterNext(g) {
+  let ch;
+  do ch = LETTERS[Math.floor(Math.random() * LETTERS.length)];
+  while (ch === lastLetter || g.targets.some(t => t.item.seq[0].ch === ch));
+  lastLetter = ch;
+  return Floaty.letterItem(ch);
+}
+function wordNext() {
+  const [w, pic] = nextWord();
+  const item = Floaty.wordItem(w, pic, 'en');
+  item.hintDelay = 1;
+  return item;
+}
+
+function floatHud(g) {
+  $('hScore').textContent = g.score;
+  $('hInTime').textContent = g.inTime;
+  $('hSpeed').textContent = g.approach.toFixed(2);
+}
+function showMenu(summary) {
+  mode = null;
+  $('hud').hidden = true; $('math').hidden = true; $('menu').hidden = false;
+  if (summary) $('last').textContent = summary;
+}
+function startFloat(kind) {
+  mode = kind;
+  Floaty.setSpeech($('optSpeak').checked);
+  $('menu').hidden = true; $('hud').hidden = false;
+  $('hA').hidden = false; $('hB').hidden = false; $('hFilter').hidden = true;
+  document.activeElement.blur();
+  Floaty.start({
+    startApproach: kind === 'letters' ? 4 : 6,
+    maxOnScreen: kind === 'letters' ? 3 : 1,
+    hint: $('optHint').checked,
+    nextItem: kind === 'letters' ? letterNext : wordNext,
+    onHud: floatHud,
+    onExit: g => showMenu(`${kind === 'letters' ? 'אותיות' : 'English'}: ${g.score} נקודות, ${g.inTime} בזמן, זמן התקרבות ${g.approach.toFixed(2)} שנ׳`),
+  });
+}
+
+// ---- Math mode ----
+const M = { ex: null, input: '', tries: 0, over: false, score: 0, solved: 0, streak: 0, filter: 'all' };
+const POINTS = [10, 6, 3];
+
+function mathHud() {
+  $('hScore').textContent = M.score;
+}
+function startMath() {
+  mode = 'math';
+  Floaty.audio();
+  Object.assign(M, { score: 0, solved: 0, streak: 0 });
+  $('menu').hidden = true; $('hud').hidden = false; $('math').hidden = false;
+  $('hA').hidden = true; $('hB').hidden = true; $('hFilter').hidden = false;
+  document.activeElement.blur();
+  mathHud();
+  nextExercise();
+}
+function nextExercise() {
+  M.ex = NevoMath.next(M.filter);
+  M.input = ''; M.tries = 0; M.over = false;
+  $('mTopic').textContent = `${M.ex.area} · ${M.ex.topic} · כיתה ${M.ex.grade}׳`;
+  $('mQ').innerHTML = M.ex.q;
+  $('mFig').innerHTML = M.ex.svg || '';
+  $('mUnit').textContent = M.ex.unit;
+  $('mFeedback').innerHTML = '';
+  $('mCheck').textContent = 'בדיקה';
+  $('mSkip').hidden = false;
+  renderInput();
+  const card = $('card');
+  card.classList.remove('fly'); void card.offsetWidth; card.classList.add('fly');
+}
+function renderInput() { $('mIn').textContent = M.input.replace(/-/g, '−'); }
+function feedback(cls, html) { $('mFeedback').innerHTML = `<div class="hintbox ${cls}">${html}</div>`; }
+function finish(html) {
+  M.over = true;
+  $('mCheck').textContent = 'לתרגיל הבא';
+  $('mSkip').hidden = true;
+  feedback('sol', html);
+}
+function submit() {
+  if (M.over) { nextExercise(); return; }
+  if (!M.input) return;
+  const ex = M.ex;
+  if (NevoMath.check(ex, M.input)) {
+    const pts = POINTS[M.tries] || 1;
+    M.score += pts; M.solved++; M.streak++;
+    (M.streak % 5 === 0 ? Floaty.sound.levelUp : Floaty.sound.win)();
+    finish(`<b>נכון! +${pts}</b>${M.streak > 1 ? ` · ${M.streak} ברצף` : ''}<br>${ex.solution}`);
+    mathHud();
+    return;
+  }
+  Floaty.sound.buzz();
+  M.tries++; M.streak = 0;
+  const card = $('card');
+  card.classList.remove('shake', 'fly'); void card.offsetWidth; card.classList.add('shake');
+  M.input = ''; renderInput();
+  if (M.tries === 1) feedback('', `<b>לא בדיוק. רמז:</b> ${ex.hints[0]}`);
+  else if (M.tries === 2) feedback('', `<b>עוד רמז:</b> ${ex.hints[1]}<br><span style="opacity:.8">${ex.hints[0]}</span>`);
+  else reveal();
+}
+function reveal() {
+  const ex = M.ex;
+  finish(`התשובה: ${'<span class="m" dir="ltr">' + String(+ex.answer.toFixed(2)).replace('-', '−') + '</span>'} ${ex.unit}<br>${ex.solution}<br><span style="opacity:.8">${ex.hints[0]}</span>`);
+  mathHud();
+}
+
+// Typing in math mode goes by physical key too, so a Hebrew layout still types digits.
+const MATH_KEYS = { Minus: '-', NumpadSubtract: '-', Period: '.', NumpadDecimal: '.', Slash: '/', NumpadDivide: '/' };
+// One path for physical keys and the on-screen number pad: a character, 'back' or 'enter'.
+function mathKey(k) {
+  if (k === 'enter') { submit(); return; }
+  if (M.over) return;
+  if (k === 'back') { M.input = M.input.slice(0, -1); renderInput(); return; }
+  if (k === '-' && M.input) return;
+  if (M.input.length < 12) { M.input += k; renderInput(); }
+}
+document.addEventListener('keydown', (e) => {
+  if (mode !== 'math' || e.ctrlKey || e.metaKey || e.altKey) return;
+  const code = Floaty.codeFromEvent(e);
+  if (e.key === 'Escape') { showMenu(`חשבון: ${M.score} נקודות, ${M.solved} תרגילים נפתרו`); return; }
+  let k = null;
+  if (e.key === 'Enter' || code === 'NumpadEnter') k = 'enter';
+  else if (e.key === 'Backspace') k = 'back';
+  else if (/^Digit\d$/.test(code)) k = code.slice(5);
+  else if (MATH_KEYS[code]) k = MATH_KEYS[code];
+  if (!k) return;
+  e.preventDefault();
+  mathKey(k);
+});
+for (const b of document.querySelectorAll('#mPad button')) {
+  b.addEventListener('pointerdown', (e) => { e.preventDefault(); mathKey(b.dataset.k); });
+}
+if (Floaty.TOUCH) {
+  $('mPad').hidden = false; $('mKeysHelp').hidden = true;
+  $('noteKeys').textContent = 'מקישים על המקלדת שבתחתית המסך. עם מקלדת אמיתית: המקש קובע, לא השפה.';
+}
+
+$('mLetters').onclick = () => startFloat('letters');
+$('mWords').onclick = () => startFloat('words');
+$('mMath').onclick = startMath;
+$('mCheck').onclick = submit;
+$('mSkip').onclick = () => { if (!M.over) { M.streak = 0; reveal(); } };
+$('btnMenu').onclick = () => {
+  if (mode === 'math') showMenu(`חשבון: ${M.score} נקודות, ${M.solved} תרגילים נפתרו`);
+  else { const g = Floaty.stop(); if (g) g.opts.onExit(g); }
+};
+for (const b of document.querySelectorAll('#hFilter button')) {
+  b.onclick = () => {
+    M.filter = b.dataset.f;
+    for (const o of document.querySelectorAll('#hFilter button')) o.classList.toggle('on', o === b);
+    b.blur();
+    nextExercise();
+  };
+}
+</script>
+</body>
+</html>
