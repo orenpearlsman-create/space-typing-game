@@ -22,6 +22,7 @@
     --font: "Varela Round", "Arial Rounded MT Bold", Arial, sans-serif;
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   html { background: var(--sky-out); }
   html, body { margin: 0; min-height: 100%; }
   body {
@@ -53,9 +54,18 @@
     border: 2px solid var(--edge); background: #070d26; color: var(--fg);
   }
   input[type=text]:focus { outline: none; border-color: var(--pro); }
-  .ages { display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); gap: 10px; direction: ltr; }
+  .ages { display: flex; flex-direction: column; gap: 14px; }
+  .group { display: flex; flex-direction: column; gap: 8px; }
+  .ghead { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .ghead b { font-size: 18px; }
+  .ghead span { font-size: 15px; color: var(--muted); }
+  .group[data-track=young] .ghead b { color: var(--young); }
+  .group[data-track=mid] .ghead b { color: var(--mid); }
+  .group[data-track=pro] .ghead b { color: var(--pro); }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; }
   .ages button {
-    font: inherit; font-size: 26px; aspect-ratio: 1; border-radius: 50%; border: 3px solid transparent; cursor: pointer;
+    width: 60px; height: 60px;
+    font: inherit; font-size: 26px; border-radius: 50%; border: 3px solid transparent; cursor: pointer;
     color: #111; touch-action: manipulation; font-variant-numeric: tabular-nums;
   }
   .ages button[data-track=young] { background: var(--young); }
@@ -114,23 +124,30 @@ const $ = id => document.getElementById(id);
 // Ages 4-7: letters, first words and simple exercises. 8-10: letters and English words.
 // 11-14: letters, English words and grade 6-8 math.
 const TRACKS = {
-  young: { name: 'מסלול חוקרים צעירים', page: 'enav.html', text: 'אותיות בעברית, מילים ראשונות עם תמונות, ותרגילי חיבור, חיסור, כפל וחילוק.' },
-  mid:   { name: 'מסלול חוקרים מתקדמים', page: 'nevo.html', text: 'אותיות בעברית ובאנגלית, ומילים באנגלית.' },
-  pro:   { name: 'מסלול חוקרים מומחים', page: 'nevo.html', text: 'אותיות בעברית ובאנגלית, מילים באנגלית, וחשבון וגאומטריה לכיתות ו׳–ח׳.' },
+  young: { name: 'מסלול חוקרים צעירים', title: 'חוקרים צעירים', ages: [4, 7], page: 'enav.html', text: 'אותיות בעברית, מילים ראשונות עם תמונות, ותרגילי חיבור, חיסור, כפל וחילוק.' },
+  mid:   { name: 'מסלול חוקרים מתקדמים', title: 'חוקרים מתקדמים', ages: [8, 10], page: 'nevo.html', text: 'אותיות בעברית ובאנגלית, ומילים באנגלית.' },
+  pro:   { name: 'מסלול חוקרים מומחים', title: 'חוקרים מומחים', ages: [11, 14], page: 'nevo.html', text: 'אותיות בעברית ובאנגלית, מילים באנגלית, וחשבון וגאומטריה לכיתות ו׳–ח׳.' },
 };
 const trackFor = age => (age <= 7 ? 'young' : age <= 10 ? 'mid' : 'pro');
 
 let age = 0;
-for (let a = 4; a <= 14; a++) {
-  const b = document.createElement('button');
-  b.type = 'button'; b.textContent = a; b.dataset.track = trackFor(a);
-  b.setAttribute('aria-pressed', 'false');
-  b.onclick = () => setAge(a);
-  $('ages').appendChild(b);
+// One row per track, each with its own heading.
+for (const [key, t] of Object.entries(TRACKS)) {
+  const group = document.createElement('div');
+  group.className = 'group'; group.dataset.track = key;
+  group.innerHTML = `<div class="ghead"><b>${t.title}</b><span>גילאי <bdi dir="ltr">${t.ages[0]}–${t.ages[1]}</bdi></span></div><div class="row"></div>`;
+  for (let a = t.ages[0]; a <= t.ages[1]; a++) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = a; b.dataset.track = key;
+    b.setAttribute('aria-pressed', 'false');
+    b.onclick = () => setAge(a);
+    group.querySelector('.row').appendChild(b);
+  }
+  $('ages').appendChild(group);
 }
 function setAge(a) {
   age = a;
-  for (const b of $('ages').children) b.setAttribute('aria-pressed', String(+b.textContent === a));
+  for (const b of $('ages').querySelectorAll('button')) b.setAttribute('aria-pressed', String(+b.textContent === a));
   const key = trackFor(a), t = TRACKS[key];
   $('track').hidden = false;
   $('track').dataset.track = key;
